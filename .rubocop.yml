@@ -3,11 +3,13 @@ inherit_gem:
 
 AllCops:
   Exclude:
+    - "acceptance/**/*"
     - "spanner-activerecord.gemspec"
-    - "Gemfile"
     - "Rakefile"
-    - "bin/*"
     - "test/**/*"
+    - "bin/*"
+  Include:
+    - "lib/**/*.rb"
 
 Documentation:
   Enabled: false

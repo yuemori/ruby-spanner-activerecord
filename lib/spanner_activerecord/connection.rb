@@ -60,7 +60,7 @@ module SpannerActiverecord
     end
 
     def create_database
-      job = @spanner.create_database @instance_id, database_id
+      job = @spanner.create_database @instance_id, @database_id
       job.wait_until_done!
       raise Google::Cloud::Error.from_error job.error if job.error?
       job.database
