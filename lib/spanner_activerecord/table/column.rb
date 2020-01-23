@@ -1,6 +1,9 @@
 module SpannerActiverecord
   class Table
     class Column
+      # @return [Integer] Primary key length. Size of the uuid string.
+      PRIMARY_KEY_LENGTH = 36
+
       attr_accessor :table_name, :name, :type, :limit, :ordinal_position,
                     :allow_commit_timestamp, :default, :primary_key
       attr_reader :reference_index
@@ -105,6 +108,10 @@ module SpannerActiverecord
       end
 
       def spanner_type
+        if primary_key && type == "STRING"
+          return "#{type}(#{limit || PRIMARY_KEY_LENGTH})"
+        end
+
         if type == "STRING" || type == "BYTES"
           return "#{type}(#{limit || 'MAX'})"
         end

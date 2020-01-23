@@ -45,7 +45,7 @@ module ActiveRecord
               limit: cd.limit,
               nullable: cd.null,
               allow_commit_timestamp: cd.options[:allow_commit_timestamp]
-            column.primary_key = true if cd.primary_key?
+            column.primary_key = cd.primary_key?
           end
         end
 
