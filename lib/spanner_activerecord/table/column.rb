@@ -104,14 +104,6 @@ module SpannerActiverecord
         raise NotSupportedError, "rename of column not supported"
       end
 
-      def spanner_type
-        if type == "STRING" || type == "BYTES"
-          return "#{type}(#{limit || 'MAX'})"
-        end
-
-        type
-      end
-
       def new_column_sql action = nil
         sql = +"#{name} #{spanner_type}"
 
@@ -126,6 +118,17 @@ module SpannerActiverecord
         end
 
         sql
+      end
+
+      def spanner_type
+        case type
+        when "STRING", "BYTES"
+          "#{type}(#{limit || 'MAX'})"
+        when "UUID"
+          "STRING(36)"
+        else
+          type
+        end
       end
 
       def self.parse_type_and_limit type

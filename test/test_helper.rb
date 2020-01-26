@@ -11,10 +11,8 @@ module MiniTest::Assertions
     act_sqls = act.respond_to?(:sql) ? Array(act.sql) : Array(act)
 
     act_sqls.each_with_index do |act_sql, i|
-      assert_equal \
-        exp[i].to_s.gsub("\n", "").squeeze.strip,
-        act_sql.to_s.gsub("\n", "").squeeze.strip,
-        msg
+      assert_equal exp[i].to_s.split, act_sql.to_s.split
+      msg
     end
   end
 end
