@@ -48,7 +48,7 @@ class MockSpannerActiveRecord < Minitest::Spec
     addl.include? :mock_spanner_activerecord
   end
 
-  def mocked_result result = nil, &block
+  def set_mocked_result result = nil, &block
     MockGoogleSpanner.mocked_result = block || result
   end
 
@@ -78,7 +78,7 @@ module MockGoogleSpanner
 
   def self.mocked_result
     return unless @mocked_result
-    result = @mocked_result.pop
+    result = @mocked_result.shift
     return result.call if result&.is_a? Proc
     result
   end

@@ -39,13 +39,13 @@ describe SpannerActiverecord::Connection, :mock_spanner_activerecord  do
 
   describe "#create_database" do
     it "creates a database" do
-      mocked_result "#{instance_id}/#{database_id}"
+      set_mocked_result "#{instance_id}/#{database_id}"
       database = connection.create_database
       database.must_equal "#{instance_id}/#{database_id}"
     end
 
     it "raise an error if issue in database creations" do
-      mocked_result do
+      set_mocked_result do
         raise "database already exists"
       end
 
@@ -68,28 +68,28 @@ describe SpannerActiverecord::Connection, :mock_spanner_activerecord  do
     end
 
     it "returns false on error" do
-      mocked_result { raise "database not available" }
+      set_mocked_result { raise "database not available" }
       connection.active?.must_equal false
     end
   end
 
   describe "#disconnect!" do
     it "disconnect connection" do
-      mocked_result true
+      set_mocked_result true
       connection.disconnect!.must_equal true
     end
   end
 
   describe "#reset!" do
     it "reset connection" do
-      mocked_result true
+      set_mocked_result true
       connection.reset!.must_equal true
     end
   end
 
   describe "#execute_query" do
     it "query database" do
-      mocked_result ["test-user"]
+      set_mocked_result ["test-user"]
       result = connection.execute_query "SELECT * FROM users"
       result.must_equal ["test-user"]
     end
@@ -97,7 +97,7 @@ describe SpannerActiverecord::Connection, :mock_spanner_activerecord  do
 
   describe "#execute_ddl" do
     it "execute ddl statements" do
-      mocked_result true
+      set_mocked_result true
       statement = "CREATE TABLE users ( id STRING(36) NOT NULL ) PRIMARY KEY (id)"
       result = connection.execute_ddl statement
       result.must_equal true
@@ -106,7 +106,7 @@ describe SpannerActiverecord::Connection, :mock_spanner_activerecord  do
     end
 
     it "raise an error if issue in executing sql statments " do
-      mocked_result do
+      set_mocked_result do
         raise "invalid sql statement"
       end
 
