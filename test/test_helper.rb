@@ -7,12 +7,16 @@ require "spanner_activerecord"
 
 module MiniTest::Assertions
   def assert_sql_equal exp, act, msg = nil
-    exp = Array(exp)
-    act_sqls = act.respond_to?(:sql) ? Array(act.sql) : Array(act)
+    exp_sqls = Array(exp).map do |obj|
+      obj.respond_to?(:sql) ? obj.sql : obj
+    end
+
+    act_sqls = Array(act).map do |obj|
+      obj.respond_to?(:sql) ? obj.sql : obj
+    end
 
     act_sqls.each_with_index do |act_sql, i|
-      assert_equal exp[i].to_s.split, act_sql.to_s.split
-      msg
+      assert_equal exp_sqls[i].to_s.split, act_sql.to_s.split, msg
     end
   end
 end
@@ -35,6 +39,11 @@ class MockSpannerActiveRecord < Minitest::Spec
     )
   }
 
+  after do
+    MockGoogleSpanner.mocked_result&.clear
+    MockGoogleSpanner.last_executed_sqls&.clear
+  end
+
   register_spec_type(self) do |desc, *addl|
     addl.include? :mock_spanner_activerecord
   end
@@ -43,8 +52,12 @@ class MockSpannerActiveRecord < Minitest::Spec
     MockGoogleSpanner.mocked_result = block || result
   end
 
+  def last_executed_sqls
+    MockGoogleSpanner.last_executed_sqls
+  end
+
   def last_executed_sql
-    MockGoogleSpanner.last_executed_sql
+    MockGoogleSpanner.last_executed_sqls.last
   end
 end
 
@@ -59,24 +72,23 @@ module MockGoogleSpanner
   end
 
   def self.mocked_result= result
-    @mocked_result = result
+    @mocked_result ||= []
+    @mocked_result << result
   end
 
   def self.mocked_result
-    if @mocked_result&.is_a? Proc
-      return @mocked_result.call
+    return unless @mocked_result
+    result = @mocked_result.pop
+    return result.call if result&.is_a? Proc
+    result
+  end
+
+  def self.last_executed_sqls sql = nil
+    if sql
+      @last_executed_sqls ||= []
+      @last_executed_sqls << sql
     end
-    @mocked_result
-  ensure
-    @mocked_result = nil
-  end
-
-  def self.last_executed_sql
-    @last_executed_sql
-  end
-
-  def self.last_executed_sql= sql
-    @last_executed_sql = sql
+    @last_executed_sqls
   end
 
   class MockProject
@@ -119,7 +131,7 @@ module MockGoogleSpanner
     end
 
     def execute_query sql, params: nil, types: nil, single_use: nil
-      MockGoogleSpanner.last_executed_sql = OpenStruct.new(
+      MockGoogleSpanner.last_executed_sqls OpenStruct.new(
         sql: sql, options: {
           params: params, types: types, single_use: single_use
         }
@@ -129,7 +141,7 @@ module MockGoogleSpanner
     alias execute execute_query
 
     def update statements: nil, operation_id: nil
-      MockGoogleSpanner.last_executed_sql = \
+      MockGoogleSpanner.last_executed_sqls \
         OpenStruct.new sql: statements, options: { operation_id: operation_id }
       MockJob.execute statements
     end

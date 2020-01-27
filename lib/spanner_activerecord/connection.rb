@@ -50,6 +50,7 @@ module SpannerActiverecord
         sql, params: params, types: types, single_use: single_use
       ).rows
     end
+    alias execute execute_query
 
     # @params [Array<String>, String] sql Single or list of statements
     def execute_ddl statements, operation_id: nil, wait_until_done: true

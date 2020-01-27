@@ -98,7 +98,7 @@ describe SpannerActiverecord::Connection, :mock_spanner_activerecord  do
   describe "#execute_ddl" do
     it "execute ddl statements" do
       mocked_result true
-      statement = "CREATE TABLE users ( id INT64 NOT NULL ) PRIMARY KEY (id)"
+      statement = "CREATE TABLE users ( id STRING(36) NOT NULL ) PRIMARY KEY (id)"
       result = connection.execute_ddl statement
       result.must_equal true
 
