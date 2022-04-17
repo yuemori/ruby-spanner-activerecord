@@ -40,6 +40,16 @@ module ActiveRecord
           self.class.quoted_table_names[name] ||= super.gsub(".", "`.`").freeze
         end
 
+        def _quote value
+          return super unless value.is_a? Array
+
+          "[#{value.map { |v| _quote v }.join(', ')}]"
+        end
+
+        def with_yaml_fallback value
+          value.is_a?(Array) ? value : super
+        end
+
         STR_ESCAPE_REGX = /[\n\r'\\]/.freeze
         STR_ESCAPE_VALUES = {
           "\n" => "\\n", "\r" => "\\r", "'" => "\\'", "\\" => "\\\\"
