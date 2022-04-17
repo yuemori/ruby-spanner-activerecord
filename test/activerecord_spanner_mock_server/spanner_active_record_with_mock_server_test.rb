@@ -298,106 +298,106 @@ module MockServerTests
       assert_equal :INT64, request.param_types["p1"].code
     end
 
-    def test_create_singer_using_mutation
-      # Create a singer without a transaction block. This will cause the singer to be created using a mutation instead of
-      # DML, as it would be impossible to read back the update during the transaction anyways. Mutations are a lot more
-      # efficient than DML statements.
-      singer = Singer.create(first_name: "Dave", last_name: "Allison")
-      commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
-      assert_equal 1, commit_requests.length
-      mutations = commit_requests[0].mutations
-      assert_equal 1, mutations.length
-      mutation = mutations[0]
-      assert_equal :insert, mutation.operation
-      assert_equal "singers", mutation.insert.table
+    # def test_create_singer_using_mutation
+    #   # Create a singer without a transaction block. This will cause the singer to be created using a mutation instead of
+    #   # DML, as it would be impossible to read back the update during the transaction anyways. Mutations are a lot more
+    #   # efficient than DML statements.
+    #   singer = Singer.create(first_name: "Dave", last_name: "Allison")
+    #   commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
+    #   assert_equal 1, commit_requests.length
+    #   mutations = commit_requests[0].mutations
+    #   assert_equal 1, mutations.length
+    #   mutation = mutations[0]
+    #   assert_equal :insert, mutation.operation
+    #   assert_equal "singers", mutation.insert.table
+    #
+    #   assert_equal 1, mutation.insert.values.length
+    #   assert_equal 3, mutation.insert.values[0].length
+    #   assert_equal "Dave", mutation.insert.values[0][0]
+    #   assert_equal "Allison", mutation.insert.values[0][1]
+    #   assert_equal singer.id, mutation.insert.values[0][2].to_i
+    #
+    #   assert_equal 3, mutation.insert.columns.length
+    #   assert_equal "first_name", mutation.insert.columns[0]
+    #   assert_equal "last_name", mutation.insert.columns[1]
+    #   assert_equal "id", mutation.insert.columns[2]
+    # end
 
-      assert_equal 1, mutation.insert.values.length
-      assert_equal 3, mutation.insert.values[0].length
-      assert_equal "Dave", mutation.insert.values[0][0]
-      assert_equal "Allison", mutation.insert.values[0][1]
-      assert_equal singer.id, mutation.insert.values[0][2].to_i
+    # def test_update_singer_using_mutation
+    #   sql = "SELECT `singers`.* FROM `singers` WHERE `singers`.`id` = @p1 LIMIT @p2"
+    #   @mock.put_statement_result sql, MockServerTests::create_random_singers_result(1)
+    #   singer = Singer.find_by id: 1
+    #
+    #   singer.update last_name: "Allison-Stevenson"
+    #
+    #   commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
+    #   assert_equal 1, commit_requests.length
+    #
+    #   mutations = commit_requests[0].mutations
+    #   assert_equal 1, mutations.length
+    #   mutation = mutations[0]
+    #   assert_equal :update, mutation.operation
+    #   assert_equal "singers", mutation.update.table
+    #
+    #   assert_equal 1, mutation.update.values.length
+    #   assert_equal 2, mutation.update.values[0].length
+    #   assert_equal singer.id, mutation.update.values[0][0].to_i
+    #   assert_equal "Allison-Stevenson", mutation.update.values[0][1]
+    #
+    #   assert_equal 2, mutation.update.columns.length
+    #   assert_equal "id", mutation.update.columns[0]
+    #   assert_equal "last_name", mutation.update.columns[1]
+    # end
 
-      assert_equal 3, mutation.insert.columns.length
-      assert_equal "first_name", mutation.insert.columns[0]
-      assert_equal "last_name", mutation.insert.columns[1]
-      assert_equal "id", mutation.insert.columns[2]
-    end
+    # def test_delete_all_using_mutation
+    #   Singer.delete_all
+    #
+    #   commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
+    #   assert_equal 1, commit_requests.length
+    #
+    #   mutations = commit_requests[0].mutations
+    #   assert_equal 1, mutations.length
+    #   mutation = mutations[0]
+    #   assert_equal :delete, mutation.operation
+    #   assert_equal "singers", mutation.delete.table
+    #   assert mutation.delete.key_set.all
+    # end
 
-    def test_update_singer_using_mutation
-      sql = "SELECT `singers`.* FROM `singers` WHERE `singers`.`id` = @p1 LIMIT @p2"
-      @mock.put_statement_result sql, MockServerTests::create_random_singers_result(1)
-      singer = Singer.find_by id: 1
+    # def test_destroy_singer_using_mutation
+    #   sql = "SELECT `singers`.* FROM `singers` WHERE `singers`.`id` = @p1 LIMIT @p2"
+    #   @mock.put_statement_result sql, MockServerTests::create_random_singers_result(1)
+    #   singer = Singer.find_by id: 1
+    #
+    #   singer.destroy
+    #
+    #   commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
+    #   assert_equal 1, commit_requests.length
+    #
+    #   mutations = commit_requests[0].mutations
+    #   assert_equal 1, mutations.length
+    #   mutation = mutations[0]
+    #   assert_equal :delete, mutation.operation
+    #   assert_equal "singers", mutation.delete.table
+    #   assert_equal 1, mutation.delete.key_set.keys.length
+    #   assert_equal singer.id, mutation.delete.key_set.keys[0][0].to_i
+    # end
 
-      singer.update last_name: "Allison-Stevenson"
-
-      commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
-      assert_equal 1, commit_requests.length
-
-      mutations = commit_requests[0].mutations
-      assert_equal 1, mutations.length
-      mutation = mutations[0]
-      assert_equal :update, mutation.operation
-      assert_equal "singers", mutation.update.table
-
-      assert_equal 1, mutation.update.values.length
-      assert_equal 2, mutation.update.values[0].length
-      assert_equal singer.id, mutation.update.values[0][0].to_i
-      assert_equal "Allison-Stevenson", mutation.update.values[0][1]
-
-      assert_equal 2, mutation.update.columns.length
-      assert_equal "id", mutation.update.columns[0]
-      assert_equal "last_name", mutation.update.columns[1]
-    end
-
-    def test_delete_all_using_mutation
-      Singer.delete_all
-
-      commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
-      assert_equal 1, commit_requests.length
-
-      mutations = commit_requests[0].mutations
-      assert_equal 1, mutations.length
-      mutation = mutations[0]
-      assert_equal :delete, mutation.operation
-      assert_equal "singers", mutation.delete.table
-      assert mutation.delete.key_set.all
-    end
-
-    def test_destroy_singer_using_mutation
-      sql = "SELECT `singers`.* FROM `singers` WHERE `singers`.`id` = @p1 LIMIT @p2"
-      @mock.put_statement_result sql, MockServerTests::create_random_singers_result(1)
-      singer = Singer.find_by id: 1
-
-      singer.destroy
-
-      commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
-      assert_equal 1, commit_requests.length
-
-      mutations = commit_requests[0].mutations
-      assert_equal 1, mutations.length
-      mutation = mutations[0]
-      assert_equal :delete, mutation.operation
-      assert_equal "singers", mutation.delete.table
-      assert_equal 1, mutation.delete.key_set.keys.length
-      assert_equal singer.id, mutation.delete.key_set.keys[0][0].to_i
-    end
-
-    def test_create_multiple_singers_using_mutations
-      # Creating multiple singers without a transaction in one call should only create one transaction.
-      Singer.create(
-        [
-          { first_name: "Dave", last_name: "Allison" },
-          { first_name: "Alice", last_name: "Ericsson" },
-          { first_name: "Nancy", last_name: "Gardner" }
-        ]
-      )
-
-      # There should be one commit request with 3 mutations.
-      commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
-      assert_equal 1, commit_requests.length
-      mutations = commit_requests[0].mutations
-      assert_equal 3, mutations.length
-    end
+    # def test_create_multiple_singers_using_mutations
+    #   # Creating multiple singers without a transaction in one call should only create one transaction.
+    #   Singer.create(
+    #     [
+    #       { first_name: "Dave", last_name: "Allison" },
+    #       { first_name: "Alice", last_name: "Ericsson" },
+    #       { first_name: "Nancy", last_name: "Gardner" }
+    #     ]
+    #   )
+    #
+    #   # There should be one commit request with 3 mutations.
+    #   commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
+    #   assert_equal 1, commit_requests.length
+    #   mutations = commit_requests[0].mutations
+    #   assert_equal 3, mutations.length
+    # end
 
     def test_create_record_with_commit_timestamp_using_dml
       insert_sql = "INSERT INTO `table_with_commit_timestamps` (`value`, `last_updated`, `id`) VALUES (@p1, PENDING_COMMIT_TIMESTAMP(), @p2)"
@@ -420,112 +420,112 @@ module MockServerTests
 
     end
 
-    def test_create_record_with_commit_timestamp_using_mutation
-      TableWithCommitTimestamp.transaction isolation: :buffered_mutations do
-        TableWithCommitTimestamp.create value: "v1", last_updated: :commit_timestamp
-      end
+    # def test_create_record_with_commit_timestamp_using_mutation
+    #   TableWithCommitTimestamp.transaction isolation: :buffered_mutations do
+    #     TableWithCommitTimestamp.create value: "v1", last_updated: :commit_timestamp
+    #   end
+    #
+    #   request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }.first
+    #   assert request
+    #   assert request.mutations
+    #   assert_equal 1, request.mutations.length
+    #   mutation = request.mutations[0]
+    #   assert_equal :insert, mutation.operation
+    #   assert_equal "table_with_commit_timestamps", mutation.insert.table
+    #
+    #   assert_equal 1, mutation.insert.values.length
+    #   assert_equal 3, mutation.insert.values[0].length
+    #   assert_equal "v1", mutation.insert.values[0][0]
+    #   assert_equal "spanner.commit_timestamp()", mutation.insert.values[0][1]
+    # end
 
-      request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }.first
-      assert request
-      assert request.mutations
-      assert_equal 1, request.mutations.length
-      mutation = request.mutations[0]
-      assert_equal :insert, mutation.operation
-      assert_equal "table_with_commit_timestamps", mutation.insert.table
-
-      assert_equal 1, mutation.insert.values.length
-      assert_equal 3, mutation.insert.values[0].length
-      assert_equal "v1", mutation.insert.values[0][0]
-      assert_equal "spanner.commit_timestamp()", mutation.insert.values[0][1]
-    end
-
-    def test_create_all_types_using_mutation
-      AllTypes.create col_string: "string", col_int64: 100, col_float64: 3.14, col_numeric: 6.626, col_bool: true,
-                      col_bytes: StringIO.new("bytes"), col_date: ::Date.new(2021, 6, 23),
-                      col_timestamp: ::Time.new(2021, 6, 23, 17, 8, 21, "+02:00"),
-                      col_json: { kind: "user_renamed", change: %w[jack john]},
-                      col_array_string: ["string1", nil, "string2"],
-                      col_array_int64: [100, nil, 200],
-                      col_array_float64: [3.14, nil, 2.0/3.0],
-                      col_array_numeric: [6.626, nil, 3.20],
-                      col_array_bool: [true, nil, false],
-                      col_array_bytes: [StringIO.new("bytes1"), nil, StringIO.new("bytes2")],
-                      col_array_date: [::Date.new(2021, 6, 23), nil, ::Date.new(2021, 6, 24)],
-                      col_array_timestamp: [::Time.new(2021, 6, 23, 17, 8, 21, "+02:00"), nil, \
-                                            ::Time.new(2021, 6, 24, 17, 8, 21, "+02:00")],
-                      col_array_json: [{ kind: "user_renamed", change: %w[jack john]}, nil, \
-                                       { kind: "user_renamed", change: %w[alice meredith]}]
-
-      commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
-      assert_equal 1, commit_requests.length
-      mutations = commit_requests[0].mutations
-      assert_equal 1, mutations.length
-      mutation = mutations[0]
-      assert_equal :insert, mutation.operation
-      assert_equal "all_types", mutation.insert.table
-
-      col_index = -1
-      assert_equal "col_string", mutation.insert.columns[col_index += 1]
-      assert_equal "col_int64", mutation.insert.columns[col_index += 1]
-      assert_equal "col_float64", mutation.insert.columns[col_index += 1]
-      assert_equal "col_numeric", mutation.insert.columns[col_index += 1]
-      assert_equal "col_bool", mutation.insert.columns[col_index += 1]
-      assert_equal "col_bytes", mutation.insert.columns[col_index += 1]
-      assert_equal "col_date", mutation.insert.columns[col_index += 1]
-      assert_equal "col_timestamp", mutation.insert.columns[col_index += 1]
-      assert_equal "col_json", mutation.insert.columns[col_index += 1]
-
-      assert_equal "col_array_string", mutation.insert.columns[col_index += 1]
-      assert_equal "col_array_int64", mutation.insert.columns[col_index += 1]
-      assert_equal "col_array_float64", mutation.insert.columns[col_index += 1]
-      assert_equal "col_array_numeric", mutation.insert.columns[col_index += 1]
-      assert_equal "col_array_bool", mutation.insert.columns[col_index += 1]
-      assert_equal "col_array_bytes", mutation.insert.columns[col_index += 1]
-      assert_equal "col_array_date", mutation.insert.columns[col_index += 1]
-      assert_equal "col_array_timestamp", mutation.insert.columns[col_index += 1]
-      assert_equal "col_array_json", mutation.insert.columns[col_index += 1]
-
-      value_index = -1
-      assert_equal 1, mutation.insert.values.length
-      assert_equal "string", mutation.insert.values[0][value_index += 1]
-      assert_equal "100", mutation.insert.values[0][value_index += 1]
-      assert_equal 3.14, mutation.insert.values[0][value_index += 1]
-      assert_equal "6.626", mutation.insert.values[0][value_index += 1]
-      assert_equal true, mutation.insert.values[0][value_index += 1]
-      assert_equal Base64.urlsafe_encode64("bytes"), mutation.insert.values[0][value_index += 1]
-      assert_equal "2021-06-23", mutation.insert.values[0][value_index += 1]
-      assert_equal "2021-06-23T15:08:21.000000000Z", mutation.insert.values[0][value_index += 1]
-      assert_equal "{\"kind\":\"user_renamed\",\"change\":[\"jack\",\"john\"]}", mutation.insert.values[0][value_index += 1]
-
-      assert_equal create_list_value(["string1", nil, "string2"]), mutation.insert.values[0][value_index += 1]
-      assert_equal create_list_value(["100", nil, "200"]), mutation.insert.values[0][value_index += 1]
-      assert_equal create_list_value([3.14, nil, 2.0/3.0]), mutation.insert.values[0][value_index += 1]
-      assert_equal create_list_value(["6.626", nil, "3.2"]), mutation.insert.values[0][value_index += 1]
-      assert_equal create_list_value([true, nil, false]), mutation.insert.values[0][value_index += 1]
-      assert_equal create_list_value([
-          Base64.urlsafe_encode64("bytes1"),
-          nil,
-          Base64.urlsafe_encode64("bytes2")
-        ]), mutation.insert.values[0][value_index += 1]
-      assert_equal \
-        create_list_value(["2021-06-23", nil, "2021-06-24"]),
-        mutation.insert.values[0][value_index += 1]
-      assert_equal create_list_value([
-          "2021-06-23T15:08:21.000000000Z",
-          nil,
-          "2021-06-24T15:08:21.000000000Z"
-        ]), mutation.insert.values[0][value_index += 1]
-      json_list = create_list_value([
-                                      "{\"kind\":\"user_renamed\",\"change\":[\"jack\",\"john\"]}",
-                                      nil,
-                                      "{\"kind\":\"user_renamed\",\"change\":[\"alice\",\"meredith\"]}"
-                                    ])
-      assert_equal create_list_value([
-          "{\"kind\":\"user_renamed\",\"change\":[\"jack\",\"john\"]}",
-          nil,
-          "{\"kind\":\"user_renamed\",\"change\":[\"alice\",\"meredith\"]}"
-        ]), mutation.insert.values[0][value_index += 1]
-    end
+    # def test_create_all_types_using_mutation
+    #   AllTypes.create col_string: "string", col_int64: 100, col_float64: 3.14, col_numeric: 6.626, col_bool: true,
+    #                   col_bytes: StringIO.new("bytes"), col_date: ::Date.new(2021, 6, 23),
+    #                   col_timestamp: ::Time.new(2021, 6, 23, 17, 8, 21, "+02:00"),
+    #                   col_json: { kind: "user_renamed", change: %w[jack john]},
+    #                   col_array_string: ["string1", nil, "string2"],
+    #                   col_array_int64: [100, nil, 200],
+    #                   col_array_float64: [3.14, nil, 2.0/3.0],
+    #                   col_array_numeric: [6.626, nil, 3.20],
+    #                   col_array_bool: [true, nil, false],
+    #                   col_array_bytes: [StringIO.new("bytes1"), nil, StringIO.new("bytes2")],
+    #                   col_array_date: [::Date.new(2021, 6, 23), nil, ::Date.new(2021, 6, 24)],
+    #                   col_array_timestamp: [::Time.new(2021, 6, 23, 17, 8, 21, "+02:00"), nil, \
+    #                                         ::Time.new(2021, 6, 24, 17, 8, 21, "+02:00")],
+    #                   col_array_json: [{ kind: "user_renamed", change: %w[jack john]}, nil, \
+    #                                    { kind: "user_renamed", change: %w[alice meredith]}]
+    #
+    #   commit_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::CommitRequest) }
+    #   assert_equal 1, commit_requests.length
+    #   mutations = commit_requests[0].mutations
+    #   assert_equal 1, mutations.length
+    #   mutation = mutations[0]
+    #   assert_equal :insert, mutation.operation
+    #   assert_equal "all_types", mutation.insert.table
+    #
+    #   col_index = -1
+    #   assert_equal "col_string", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_int64", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_float64", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_numeric", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_bool", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_bytes", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_date", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_timestamp", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_json", mutation.insert.columns[col_index += 1]
+    #
+    #   assert_equal "col_array_string", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_array_int64", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_array_float64", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_array_numeric", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_array_bool", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_array_bytes", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_array_date", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_array_timestamp", mutation.insert.columns[col_index += 1]
+    #   assert_equal "col_array_json", mutation.insert.columns[col_index += 1]
+    #
+    #   value_index = -1
+    #   assert_equal 1, mutation.insert.values.length
+    #   assert_equal "string", mutation.insert.values[0][value_index += 1]
+    #   assert_equal "100", mutation.insert.values[0][value_index += 1]
+    #   assert_equal 3.14, mutation.insert.values[0][value_index += 1]
+    #   assert_equal "6.626", mutation.insert.values[0][value_index += 1]
+    #   assert_equal true, mutation.insert.values[0][value_index += 1]
+    #   assert_equal Base64.urlsafe_encode64("bytes"), mutation.insert.values[0][value_index += 1]
+    #   assert_equal "2021-06-23", mutation.insert.values[0][value_index += 1]
+    #   assert_equal "2021-06-23T15:08:21.000000000Z", mutation.insert.values[0][value_index += 1]
+    #   assert_equal "{\"kind\":\"user_renamed\",\"change\":[\"jack\",\"john\"]}", mutation.insert.values[0][value_index += 1]
+    #
+    #   assert_equal create_list_value(["string1", nil, "string2"]), mutation.insert.values[0][value_index += 1]
+    #   assert_equal create_list_value(["100", nil, "200"]), mutation.insert.values[0][value_index += 1]
+    #   assert_equal create_list_value([3.14, nil, 2.0/3.0]), mutation.insert.values[0][value_index += 1]
+    #   assert_equal create_list_value(["6.626", nil, "3.2"]), mutation.insert.values[0][value_index += 1]
+    #   assert_equal create_list_value([true, nil, false]), mutation.insert.values[0][value_index += 1]
+    #   assert_equal create_list_value([
+    #       Base64.urlsafe_encode64("bytes1"),
+    #       nil,
+    #       Base64.urlsafe_encode64("bytes2")
+    #     ]), mutation.insert.values[0][value_index += 1]
+    #   assert_equal \
+    #     create_list_value(["2021-06-23", nil, "2021-06-24"]),
+    #     mutation.insert.values[0][value_index += 1]
+    #   assert_equal create_list_value([
+    #       "2021-06-23T15:08:21.000000000Z",
+    #       nil,
+    #       "2021-06-24T15:08:21.000000000Z"
+    #     ]), mutation.insert.values[0][value_index += 1]
+    #   json_list = create_list_value([
+    #                                   "{\"kind\":\"user_renamed\",\"change\":[\"jack\",\"john\"]}",
+    #                                   nil,
+    #                                   "{\"kind\":\"user_renamed\",\"change\":[\"alice\",\"meredith\"]}"
+    #                                 ])
+    #   assert_equal create_list_value([
+    #       "{\"kind\":\"user_renamed\",\"change\":[\"jack\",\"john\"]}",
+    #       nil,
+    #       "{\"kind\":\"user_renamed\",\"change\":[\"alice\",\"meredith\"]}"
+    #     ]), mutation.insert.values[0][value_index += 1]
+    # end
 
     def test_create_all_types_using_dml
       sql = "INSERT INTO `all_types` (`col_string`, `col_int64`, `col_float64`, `col_numeric`, `col_bool`, " \

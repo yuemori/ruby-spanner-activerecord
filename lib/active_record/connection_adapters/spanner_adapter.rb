@@ -10,7 +10,6 @@ require "spanner_client_ext"
 require "active_record/connection_adapters/abstract_adapter"
 require "active_record/connection_adapters/spanner/database_statements"
 require "active_record/connection_adapters/spanner/schema_statements"
-require "active_record/connection_adapters/spanner/schema_cache"
 require "active_record/connection_adapters/spanner/schema_definitions"
 require "active_record/connection_adapters/spanner/type_metadata"
 require "active_record/connection_adapters/spanner/quoting"
@@ -19,11 +18,9 @@ require "active_record/type/spanner/bytes"
 require "active_record/type/spanner/spanner_active_record_converter"
 require "active_record/type/spanner/time"
 require "arel/visitors/spanner"
-require "activerecord_spanner_adapter/base"
 require "activerecord_spanner_adapter/connection"
 require "activerecord_spanner_adapter/errors"
 require "activerecord_spanner_adapter/information_schema"
-require "activerecord_spanner_adapter/primary_key"
 require "activerecord_spanner_adapter/transaction"
 
 module ActiveRecord
@@ -41,14 +38,6 @@ module ActiveRecord
   end
 
   module ConnectionAdapters
-    module AbstractPool
-      def get_schema_cache connection
-        @schema_cache ||= SpannerSchemaCache.new connection
-        @schema_cache.connection = connection
-        @schema_cache
-      end
-    end
-
     class SpannerAdapter < AbstractAdapter
       ADAPTER_NAME = "spanner".freeze
       NATIVE_DATABASE_TYPES = {
@@ -165,8 +154,8 @@ module ActiveRecord
         true
       end
 
-      def prefetch_primary_key? _table_name = nil
-        true
+      def prefetch_primary_key? table_name = nil
+        primary_keys(table_name).size == 1
       end
 
       # Generate next sequence number for primary key

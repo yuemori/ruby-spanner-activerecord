@@ -78,203 +78,113 @@ module MockServerTests
       assert_equal "3", request.params["p2"]
     end
 
-    def test_versioned_update_using_implicit_transaction
-      version = 2
-      register_versioned_singer_find_by_id_result version
-      select_sql = register_version_check_result true
+    # def test_versioned_update_using_explicit_transaction_with_mutations
+    #   version = 2
+    #   register_versioned_singer_find_by_id_result version
+    #   select_sql = register_version_check_result true
+    #
+    #   singer = VersionedSinger.find 1
+    #   VersionedSinger.transaction isolation: :buffered_mutations do
+    #     VersionedSinger.create first_name: "New", last_name: "Singer"
+    #     singer.update last_name: "Rakefield"
+    #   end
+    #
+    #   # When an update is done using mutations, the version check is executed using a SELECT statement inside the transaction.
+    #   begin_requests = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::BeginTransactionRequest }
+    #   select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
+    #   commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
+    #   assert_empty begin_requests
+    #   assert select_request
+    #   assert commit_request
+    #
+    #   assert_equal version.to_s, select_request.params["lock_version"]
+    #   assert select_request.transaction&.begin&.read_write
+    #   assert_equal 2, commit_request.mutations.length
+    #
+    #   insert = commit_request.mutations[0]
+    #   update = commit_request.mutations[1]
+    #   assert_equal :insert, insert.operation
+    #   assert_equal :update, update.operation
+    # end
 
-      singer = VersionedSinger.find 1
-      singer.update last_name: "Rakefield"
+    # def test_versioned_update_using_explicit_transaction_with_mutations_stale_object
+    #   version = 3
+    #   register_versioned_singer_find_by_id_result version
+    #   select_sql = register_version_check_result false
+    #
+    #   singer = VersionedSinger.find 1
+    #   VersionedSinger.transaction isolation: :buffered_mutations do
+    #     VersionedSinger.create first_name: "New", last_name: "Singer"
+    #     assert_raises ActiveRecord::StaleObjectError do
+    #       singer.update last_name: "Rakefield"
+    #     end
+    #   end
+    #
+    #   select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
+    #   commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
+    #   assert select_request
+    #   assert_equal version.to_s, select_request.params["lock_version"]
+    #
+    #   # The insert should be executed.
+    #   assert commit_request
+    #   assert_equal 1, commit_request.mutations.length
+    #
+    #   insert = commit_request.mutations[0]
+    #   assert_equal :insert, insert.operation
+    # end
 
-      # When an update is done using mutations, the version check is executed using a SELECT statement inside the transaction.
-      select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
-      commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
-      assert select_request
-      assert commit_request
+    # def test_versioned_delete_using_explicit_transaction_with_mutations
+    #   version = 2
+    #   register_versioned_singer_find_by_id_result version
+    #   select_sql = register_version_check_result true
+    #
+    #   singer = VersionedSinger.find 1
+    #   VersionedSinger.transaction isolation: :buffered_mutations do
+    #     VersionedSinger.create first_name: "New", last_name: "Singer"
+    #     singer.destroy
+    #   end
+    #
+    #   # When a delete is done using mutations, the version check is executed using a SELECT statement inside the transaction.
+    #   select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
+    #   commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
+    #   assert select_request
+    #   assert commit_request
+    #
+    #   assert_equal version.to_s, select_request.params["lock_version"]
+    #   assert select_request.transaction&.begin&.read_write
+    #
+    #   insert = commit_request.mutations[0]
+    #   delete = commit_request.mutations[1]
+    #   assert_equal :insert, insert.operation
+    #   assert_equal :delete, delete.operation
+    # end
 
-      assert_equal version.to_s, select_request.params["lock_version"]
-      assert select_request.transaction&.begin&.read_write
-
-      mutation = commit_request.mutations[0]
-      col_index = -1
-      assert_equal "id", mutation.update.columns[col_index += 1]
-      assert_equal "last_name", mutation.update.columns[col_index += 1]
-      assert_equal "lock_version", mutation.update.columns[col_index += 1]
-
-      value_index = -1
-      assert_equal singer.id.to_s, mutation.update.values[0][value_index += 1]
-      assert_equal "Rakefield", mutation.update.values[0][value_index += 1]
-      assert_equal (version + 1).to_s, mutation.update.values[0][value_index += 1]
-    end
-
-    def test_versioned_update_using_implicit_transaction_stale_object
-      version = 3
-      register_versioned_singer_find_by_id_result version
-      select_sql = register_version_check_result false
-
-      singer = VersionedSinger.find 1
-      assert_raises ActiveRecord::StaleObjectError do
-        singer.update last_name: "Rakefield"
-      end
-
-      select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
-      commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
-      # The version check should be executed and then the transaction should stop without a commit, as the version check
-      # failed.
-      assert select_request
-      assert_equal version.to_s, select_request.params["lock_version"]
-      refute commit_request
-    end
-
-    def test_versioned_delete_using_implicit_transaction
-      version = 2
-      register_versioned_singer_find_by_id_result version
-      select_sql = register_version_check_result true
-
-      singer = VersionedSinger.find 1
-      singer.destroy
-
-      # When a delete is done using mutations, the version check is executed using a SELECT statement inside the transaction.
-      select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
-      commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
-      assert select_request
-      assert commit_request
-
-      assert_equal version.to_s, select_request.params["lock_version"]
-      assert select_request.transaction&.begin&.read_write
-
-      mutation = commit_request.mutations[0]
-      assert_equal :delete, mutation.operation
-      assert_equal "versioned_singers", mutation.delete.table
-      assert_equal 1, mutation.delete.key_set.keys.length
-      assert_equal singer.id, mutation.delete.key_set.keys[0][0].to_i
-    end
-
-    def test_versioned_delete_using_implicit_transaction_stale_object
-      version = 3
-      register_versioned_singer_find_by_id_result version
-      select_sql = register_version_check_result false
-
-      singer = VersionedSinger.find 1
-      assert_raises ActiveRecord::StaleObjectError do
-        singer.destroy
-      end
-
-      select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
-      commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
-
-      assert select_request
-      assert_equal version.to_s, select_request.params["lock_version"]
-      refute commit_request
-    end
-
-    def test_versioned_update_using_explicit_transaction_with_mutations
-      version = 2
-      register_versioned_singer_find_by_id_result version
-      select_sql = register_version_check_result true
-
-      singer = VersionedSinger.find 1
-      VersionedSinger.transaction isolation: :buffered_mutations do
-        VersionedSinger.create first_name: "New", last_name: "Singer"
-        singer.update last_name: "Rakefield"
-      end
-
-      # When an update is done using mutations, the version check is executed using a SELECT statement inside the transaction.
-      begin_requests = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::BeginTransactionRequest }
-      select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
-      commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
-      assert_empty begin_requests
-      assert select_request
-      assert commit_request
-
-      assert_equal version.to_s, select_request.params["lock_version"]
-      assert select_request.transaction&.begin&.read_write
-      assert_equal 2, commit_request.mutations.length
-
-      insert = commit_request.mutations[0]
-      update = commit_request.mutations[1]
-      assert_equal :insert, insert.operation
-      assert_equal :update, update.operation
-    end
-
-    def test_versioned_update_using_explicit_transaction_with_mutations_stale_object
-      version = 3
-      register_versioned_singer_find_by_id_result version
-      select_sql = register_version_check_result false
-
-      singer = VersionedSinger.find 1
-      VersionedSinger.transaction isolation: :buffered_mutations do
-        VersionedSinger.create first_name: "New", last_name: "Singer"
-        assert_raises ActiveRecord::StaleObjectError do
-          singer.update last_name: "Rakefield"
-        end
-      end
-
-      select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
-      commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
-      assert select_request
-      assert_equal version.to_s, select_request.params["lock_version"]
-
-      # The insert should be executed.
-      assert commit_request
-      assert_equal 1, commit_request.mutations.length
-
-      insert = commit_request.mutations[0]
-      assert_equal :insert, insert.operation
-    end
-
-    def test_versioned_delete_using_explicit_transaction_with_mutations
-      version = 2
-      register_versioned_singer_find_by_id_result version
-      select_sql = register_version_check_result true
-
-      singer = VersionedSinger.find 1
-      VersionedSinger.transaction isolation: :buffered_mutations do
-        VersionedSinger.create first_name: "New", last_name: "Singer"
-        singer.destroy
-      end
-
-      # When a delete is done using mutations, the version check is executed using a SELECT statement inside the transaction.
-      select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
-      commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
-      assert select_request
-      assert commit_request
-
-      assert_equal version.to_s, select_request.params["lock_version"]
-      assert select_request.transaction&.begin&.read_write
-
-      insert = commit_request.mutations[0]
-      delete = commit_request.mutations[1]
-      assert_equal :insert, insert.operation
-      assert_equal :delete, delete.operation
-    end
-
-    def test_versioned_delete_using_explicit_transaction_with_mutations_stale_object
-      version = 3
-      register_versioned_singer_find_by_id_result version
-      select_sql = register_version_check_result false
-
-      singer = VersionedSinger.find 1
-      VersionedSinger.transaction isolation: :buffered_mutations do
-        VersionedSinger.create first_name: "New", last_name: "Singer"
-        assert_raises ActiveRecord::StaleObjectError do
-          singer.destroy
-        end
-      end
-
-      select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
-      commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
-
-      assert select_request
-      assert_equal version.to_s, select_request.params["lock_version"]
-
-      # The insert should be executed.
-      assert commit_request
-      assert_equal 1, commit_request.mutations.length
-
-      insert = commit_request.mutations[0]
-      assert_equal :insert, insert.operation
-    end
+    # def test_versioned_delete_using_explicit_transaction_with_mutations_stale_object
+    #   version = 3
+    #   register_versioned_singer_find_by_id_result version
+    #   select_sql = register_version_check_result false
+    #
+    #   singer = VersionedSinger.find 1
+    #   VersionedSinger.transaction isolation: :buffered_mutations do
+    #     VersionedSinger.create first_name: "New", last_name: "Singer"
+    #     assert_raises ActiveRecord::StaleObjectError do
+    #       singer.destroy
+    #     end
+    #   end
+    #
+    #   select_request = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.sql == select_sql }.first
+    #   commit_request = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }.first
+    #
+    #   assert select_request
+    #   assert_equal version.to_s, select_request.params["lock_version"]
+    #
+    #   # The insert should be executed.
+    #   assert commit_request
+    #   assert_equal 1, commit_request.mutations.length
+    #
+    #   insert = commit_request.mutations[0]
+    #   assert_equal :insert, insert.operation
+    # end
 
     def register_insert_versioned_singer_result
       sql = "INSERT INTO `versioned_singers` (`first_name`, `last_name`, `lock_version`, `id`) " \

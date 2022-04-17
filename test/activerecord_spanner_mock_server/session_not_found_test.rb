@@ -34,22 +34,12 @@ module MockServerTests
     end
 
     def test_session_not_found_implicit_transaction_single_insert
+      register_insert_singer_result
+
       create_connection_with_invalidated_session
       Singer.create(first_name: "Dave", last_name: "Allison")
 
-      begin_requests = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::BeginTransactionRequest }
-      assert_equal 2, begin_requests.length
-      refute_equal begin_requests[0].session, begin_requests[1].session
-      commit_requests = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }
-      assert_equal 1, commit_requests.length
-      assert_equal begin_requests[1].session, commit_requests[0].session
-    end
-
-    def test_session_not_found_implicit_transaction_batch_insert
-      create_connection_with_invalidated_session
-      Singer.create([{first_name: "Dave", last_name: "Allison"}, {first_name: "Alice", last_name: "Becker"}])
-
-      begin_requests = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::BeginTransactionRequest }
+      begin_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.transaction }
       assert_equal 2, begin_requests.length
       refute_equal begin_requests[0].session, begin_requests[1].session
       commit_requests = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }
@@ -58,10 +48,12 @@ module MockServerTests
     end
 
     def test_session_not_found_on_begin_transaction
+      register_insert_singer_result
+
       create_connection_with_invalidated_session
       Singer.create(first_name: "Dave", last_name: "Allison")
 
-      begin_requests = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::BeginTransactionRequest }
+      begin_requests = @mock.requests.select { |req| req.is_a?(Google::Cloud::Spanner::V1::ExecuteSqlRequest) && req.transaction }
       assert_equal 2, begin_requests.length
       refute_equal begin_requests[0].session, begin_requests[1].session
       commit_requests = @mock.requests.select { |req| req.is_a? Google::Cloud::Spanner::V1::CommitRequest }
