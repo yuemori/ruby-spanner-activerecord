@@ -62,6 +62,59 @@ module ActiveRecord
       include Spanner::DatabaseStatements
       include Spanner::SchemaStatements
 
+      class SpannerInteger < Type::Integer # :nodoc:
+        private
+
+        def _limit
+          # INTEGER storage class can be stored 8 bytes value.
+          limit || 8
+        end
+      end
+
+      ActiveRecord::Type.register(:integer, SpannerInteger, adapter: :spanner)
+
+      class << self
+        private
+
+        def initialize_type_map m = type_map
+          m.register_type "BOOL", Type::Boolean.new
+          register_class_with_limit(
+            m, %r{^BYTES}i, ActiveRecord::Type::Spanner::Bytes
+          )
+          m.register_type "DATE", Type::Date.new
+          m.register_type "FLOAT64", Type::Float.new
+          m.register_type "NUMERIC", Type::Decimal.new
+          register_class_with_limit m, "INT64", SpannerInteger
+          register_class_with_limit m, %r{^STRING}i, Type::String
+          m.register_type "TIMESTAMP", ActiveRecord::Type::Spanner::Time.new
+          m.register_type "JSON", ActiveRecord::Type::Json.new
+
+          register_array_types m
+        end
+
+        def register_array_types m
+          m.register_type %r{^ARRAY<BOOL>}i, Type::Spanner::Array.new(Type::Boolean.new)
+          m.register_type %r{^ARRAY<BYTES\((MAX|d+)\)>}i, Type::Spanner::Array.new(ActiveRecord::Type::Spanner::Bytes.new)
+          m.register_type %r{^ARRAY<DATE>}i, Type::Spanner::Array.new(Type::Date.new)
+          m.register_type %r{^ARRAY<FLOAT64>}i, Type::Spanner::Array.new(Type::Float.new)
+          m.register_type %r{^ARRAY<NUMERIC>}i, Type::Spanner::Array.new(Type::Decimal.new)
+          m.register_type %r{^ARRAY<INT64>}i, Type::Spanner::Array.new(SpannerInteger.new)
+          m.register_type %r{^ARRAY<STRING\((MAX|d+)\)>}i, Type::Spanner::Array.new(Type::String.new)
+          m.register_type %r{^ARRAY<TIMESTAMP>}i, Type::Spanner::Array.new(ActiveRecord::Type::Spanner::Time.new)
+          m.register_type %r{^ARRAY<JSON>}i, Type::Spanner::Array.new(ActiveRecord::Type::Json.new)
+        end
+
+        def extract_limit sql_type
+          value = /\((.*)\)/.match sql_type
+          return unless value
+
+          value[1] == "MAX" ? "MAX" : value[1].to_i
+        end
+      end
+
+      TYPE_MAP = Type::TypeMap.new.tap { |m| initialize_type_map m }
+      EXTENDED_TYPE_MAPS = Concurrent::Map.new
+
       def initialize connection, logger, connection_options, config
         super connection, logger, config
         @connection_options = connection_options
@@ -178,39 +231,8 @@ module ActiveRecord
 
       private
 
-      def initialize_type_map m = type_map
-        m.register_type "BOOL", Type::Boolean.new
-        register_class_with_limit(
-          m, %r{^BYTES}i, ActiveRecord::Type::Spanner::Bytes
-        )
-        m.register_type "DATE", Type::Date.new
-        m.register_type "FLOAT64", Type::Float.new
-        m.register_type "NUMERIC", Type::Decimal.new
-        m.register_type "INT64", Type::Integer.new(limit: 8)
-        register_class_with_limit m, %r{^STRING}i, Type::String
-        m.register_type "TIMESTAMP", ActiveRecord::Type::Spanner::Time.new
-        m.register_type "JSON", ActiveRecord::Type::Json.new
-
-        register_array_types m
-      end
-
-      def register_array_types m
-        m.register_type %r{^ARRAY<BOOL>}i, Type::Spanner::Array.new(Type::Boolean.new)
-        m.register_type %r{^ARRAY<BYTES\((MAX|d+)\)>}i, Type::Spanner::Array.new(ActiveRecord::Type::Spanner::Bytes.new)
-        m.register_type %r{^ARRAY<DATE>}i, Type::Spanner::Array.new(Type::Date.new)
-        m.register_type %r{^ARRAY<FLOAT64>}i, Type::Spanner::Array.new(Type::Float.new)
-        m.register_type %r{^ARRAY<NUMERIC>}i, Type::Spanner::Array.new(Type::Decimal.new)
-        m.register_type %r{^ARRAY<INT64>}i, Type::Spanner::Array.new(Type::Integer.new(limit: 8))
-        m.register_type %r{^ARRAY<STRING\((MAX|d+)\)>}i, Type::Spanner::Array.new(Type::String.new)
-        m.register_type %r{^ARRAY<TIMESTAMP>}i, Type::Spanner::Array.new(ActiveRecord::Type::Spanner::Time.new)
-        m.register_type %r{^ARRAY<JSON>}i, Type::Spanner::Array.new(ActiveRecord::Type::Json.new)
-      end
-
-      def extract_limit sql_type
-        value = /\((.*)\)/.match sql_type
-        return unless value
-
-        value[1] == "MAX" ? "MAX" : value[1].to_i
+      def type_map
+        TYPE_MAP
       end
 
       def translate_exception exception, message:, sql:, binds:

@@ -970,6 +970,9 @@ module TestMigrationsWithMockServer
     end
 
     def register_schema_migrations_columns_result
+      sql = "WITH TABLE_PK_COLS AS ( SELECT C.TABLE_NAME, C.COLUMN_NAME, C.INDEX_NAME, C.COLUMN_ORDERING, C.ORDINAL_POSITION FROM INFORMATION_SCHEMA.INDEX_COLUMNS C WHERE C.INDEX_TYPE = 'PRIMARY_KEY' AND TABLE_CATALOG = '' AND TABLE_SCHEMA = '') SELECT INDEX_NAME, COLUMN_NAME, COLUMN_ORDERING, ORDINAL_POSITION FROM TABLE_PK_COLS INNER JOIN INFORMATION_SCHEMA.TABLES T USING (TABLE_NAME) WHERE TABLE_NAME = 'schema_migrations' AND TABLE_CATALOG = '' AND TABLE_SCHEMA = '' ORDER BY ORDINAL_POSITION"
+      register_key_columns_result sql
+
       # CREATE TABLE `schema_migrations` (`version` STRING(MAX) NOT NULL) PRIMARY KEY (`version`)
       sql = "SELECT COLUMN_NAME, SPANNER_TYPE, IS_NULLABLE, CAST(COLUMN_DEFAULT AS STRING) AS COLUMN_DEFAULT, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='schema_migrations' ORDER BY ORDINAL_POSITION ASC"
 
@@ -997,8 +1000,11 @@ module TestMigrationsWithMockServer
     end
 
     def register_ar_internal_metadata_table_result
-      sql = "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, PARENT_TABLE_NAME, ON_DELETE_ACTION FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='' AND TABLE_NAME='ar_internal_metadata'"
-      register_empty_select_tables_result sql
+      sql1 = "WITH TABLE_PK_COLS AS ( SELECT C.TABLE_NAME, C.COLUMN_NAME, C.INDEX_NAME, C.COLUMN_ORDERING, C.ORDINAL_POSITION FROM INFORMATION_SCHEMA.INDEX_COLUMNS C WHERE C.INDEX_TYPE = 'PRIMARY_KEY' AND TABLE_CATALOG = '' AND TABLE_SCHEMA = '') SELECT INDEX_NAME, COLUMN_NAME, COLUMN_ORDERING, ORDINAL_POSITION FROM TABLE_PK_COLS INNER JOIN INFORMATION_SCHEMA.TABLES T USING (TABLE_NAME) WHERE TABLE_NAME = 'ar_internal_metadata' AND TABLE_CATALOG = '' AND TABLE_SCHEMA = '' ORDER BY ORDINAL_POSITION"
+      register_key_columns_result sql1
+
+      sql2 = "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, PARENT_TABLE_NAME, ON_DELETE_ACTION FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='' AND TABLE_NAME='ar_internal_metadata'"
+      register_empty_select_tables_result sql2
     end
 
     def register_ar_internal_metadata_columns_result
@@ -1239,6 +1245,28 @@ module TestMigrationsWithMockServer
         Google::Protobuf::Value.new(string_value: ""),
         Google::Protobuf::Value.new(string_value: "1")
       )
+      result_set.rows.push row
+
+      @mock.put_statement_result sql, StatementResult.new(result_set)
+    end
+
+    def register_key_columns_result sql
+      index_name = Google::Cloud::Spanner::V1::StructType::Field.new name: "INDEX_NAME", type: Google::Cloud::Spanner::V1::Type.new(code: Google::Cloud::Spanner::V1::TypeCode::STRING)
+      column_name = Google::Cloud::Spanner::V1::StructType::Field.new name: "COLUMN_NAME", type: Google::Cloud::Spanner::V1::Type.new(code: Google::Cloud::Spanner::V1::TypeCode::STRING)
+      column_ordering = Google::Cloud::Spanner::V1::StructType::Field.new name: "COLUMN_ORDERING", type: Google::Cloud::Spanner::V1::Type.new(code: Google::Cloud::Spanner::V1::TypeCode::STRING)
+      ordinal_position = Google::Cloud::Spanner::V1::StructType::Field.new name: "ORDINAL_POSITION", type: Google::Cloud::Spanner::V1::Type.new(code: Google::Cloud::Spanner::V1::TypeCode::INT64)
+
+      metadata = Google::Cloud::Spanner::V1::ResultSetMetadata.new row_type: Google::Cloud::Spanner::V1::StructType.new
+      metadata.row_type.fields.push index_name, column_name, column_ordering, ordinal_position
+      result_set = Google::Cloud::Spanner::V1::ResultSet.new metadata: metadata
+
+      row = Google::Protobuf::ListValue.new
+      row.values.push(
+        Google::Protobuf::Value.new(string_value: "PRIMARY_KEY"),
+        Google::Protobuf::Value.new(string_value: "id"),
+        Google::Protobuf::Value.new(string_value: "ASC"),
+        Google::Protobuf::Value.new(string_value: "1"),
+        )
       result_set.rows.push row
 
       @mock.put_statement_result sql, StatementResult.new(result_set)
